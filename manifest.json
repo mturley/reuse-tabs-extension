@@ -5,6 +5,7 @@
   "description": "When navigating to a URL that's already open in another tab, switch to that tab instead.",
   "permissions": [
     "tabs",
+    "menus",
     "webRequest",
     "webRequestBlocking",
     "<all_urls>"
