@@ -8,7 +8,7 @@
       font-size: 13px;
       margin: 0;
       padding: 12px;
-      min-width: 200px;
+      min-width: 220px;
     }
     h3 {
       margin: 0 0 10px;
@@ -24,6 +24,17 @@
     label + label {
       border-top: 1px solid #e0e0e0;
     }
+    .sub-option {
+      padding: 4px 0 6px 26px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #555;
+    }
+    .sub-option select {
+      font-size: 12px;
+    }
   </style>
 </head>
 <body>
@@ -36,6 +47,22 @@
     <input type="checkbox" id="notifications">
     Show notifications
   </label>
+  <label>
+    <input type="checkbox" id="reloadOnSwitch">
+    Reload tabs after switching
+  </label>
+  <div class="sub-option" id="ttlRow">
+    Only if idle for
+    <select id="reloadTtlMinutes">
+      <option value="1">1 min</option>
+      <option value="2">2 min</option>
+      <option value="5">5 min</option>
+      <option value="10">10 min</option>
+      <option value="30">30 min</option>
+      <option value="60">1 hour</option>
+      <option value="0">Always</option>
+    </select>
+  </div>
   <script src="popup.js"></script>
 </body>
 </html>

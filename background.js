@@ -10,6 +10,9 @@ const exemptTabs = new Set();
 // Flag: when set, the next tab created by browser.tabs.duplicate() should be exempt
 let pendingExemptDuplicate = false;
 
+// Track when each tab last had a navigation (timestamp in ms)
+const tabLastNavigated = new Map();
+
 // Initialize the cache with all currently open tabs
 async function initCache() {
   const tabs = await browser.tabs.query({});
@@ -25,6 +28,7 @@ function addToCache(url, tabId) {
     tabsByUrl.set(url, new Set());
   }
   tabsByUrl.get(url).add(tabId);
+  tabLastNavigated.set(tabId, Date.now());
 }
 
 function removeTabFromCache(tabId) {
@@ -85,12 +89,28 @@ function shortenUrl(url) {
   }
 }
 
+async function maybeReloadTab(tabId) {
+  const { reloadOnSwitch = false, reloadTtlMinutes = 5 } = await browser.storage.local.get([
+    "reloadOnSwitch",
+    "reloadTtlMinutes",
+  ]);
+  if (!reloadOnSwitch) return false;
+  if (reloadTtlMinutes > 0) {
+    const lastNav = tabLastNavigated.get(tabId);
+    if (lastNav && (Date.now() - lastNav) < reloadTtlMinutes * 60 * 1000) return false;
+  }
+  await browser.tabs.reload(tabId);
+  return true;
+}
+
 async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
   await browser.tabs.update(existingTabId, { active: true });
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
   await browser.tabs.remove(tabIdToClose);
-  notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(url)}`, existingTabId);
+  const reloaded = await maybeReloadTab(existingTabId);
+  const action = reloaded ? "Closed duplicate tab, switched to and reloaded" : "Closed duplicate tab and switched to existing tab:";
+  notify(`${action} ${shortenUrl(url)}`, existingTabId);
 }
 
 function applyExemptTitlePrefix(tabId) {
@@ -174,6 +194,7 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 browser.tabs.onRemoved.addListener((tabId) => {
   pendingNewTabs.delete(tabId);
   exemptTabs.delete(tabId);
+  tabLastNavigated.delete(tabId);
   removeTabFromCache(tabId);
 });
 
@@ -200,13 +221,20 @@ browser.webRequest.onBeforeRequest.addListener(
       browser.windows.update(tab.windowId, { focused: true });
     });
     // If this was a newly opened tab (e.g. from an external app), close it
-    if (pendingNewTabs.has(details.tabId)) {
+    const closedNew = pendingNewTabs.has(details.tabId);
+    if (closedNew) {
       pendingNewTabs.delete(details.tabId);
       browser.tabs.remove(details.tabId);
-      notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(details.url)}`, matchId);
-    } else {
-      notify(`Cancelled navigation and switched to existing tab: ${shortenUrl(details.url)}`, matchId);
     }
+    maybeReloadTab(matchId).then((reloaded) => {
+      const parts = [];
+      if (closedNew) parts.push("Closed duplicate tab,");
+      else parts.push("Cancelled navigation,");
+      parts.push("switched to");
+      if (reloaded) parts.push("and reloaded");
+      parts.push(`existing tab: ${shortenUrl(details.url)}`);
+      notify(parts.join(" "), matchId);
+    });
 
     // Cancel the navigation
     return { cancel: true };
