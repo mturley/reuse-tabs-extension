@@ -10,6 +10,9 @@ const exemptTabs = new Set();
 // Flag: when set, the next tab created by browser.tabs.duplicate() should be exempt
 let pendingExemptDuplicate = false;
 
+// Grace period flag: skip duplicate detection during session restore
+let startupComplete = false;
+
 // Track when each tab last had a navigation (timestamp in ms)
 const tabLastNavigated = new Map();
 
@@ -147,6 +150,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
   setTimeout(() => pendingNewTabs.delete(tab.id), 5000);
 
   if (!extensionEnabled) return;
+  if (!startupComplete) return;
 
   if (!isIgnoredUrl(tab.url)) {
     const existingTabIds = tabsByUrl.get(tab.url);
@@ -178,7 +182,7 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   addToCache(changeInfo.url, tabId);
 
   // If this is a recently created tab, check for duplicates
-  if (extensionEnabled && pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
+  if (startupComplete && extensionEnabled && pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
     pendingNewTabs.delete(tabId);
     const existingTabIds = tabsByUrl.get(changeInfo.url);
     if (existingTabIds) {
@@ -201,6 +205,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (!extensionEnabled) return;
+    if (!startupComplete) return;
     if (details.type !== "main_frame") return;
     if (isIgnoredUrl(details.url)) return;
     if (pendingExemptDuplicate || exemptTabs.has(details.tabId)) return;
@@ -244,3 +249,4 @@ browser.webRequest.onBeforeRequest.addListener(
 
 loadEnabledState();
 initCache();
+setTimeout(() => { startupComplete = true; }, 5000);
