@@ -1,0 +1,20 @@
+{
+  "manifest_version": 2,
+  "name": "Reuse Tabs",
+  "version": "1.0.0",
+  "description": "When navigating to a URL that's already open in another tab, switch to that tab instead.",
+  "permissions": [
+    "tabs",
+    "webRequest",
+    "webRequestBlocking",
+    "<all_urls>"
+  ],
+  "background": {
+    "scripts": ["background.js"]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "reuse-tabs@mturley"
+    }
+  }
+}
