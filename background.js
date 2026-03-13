@@ -42,11 +42,46 @@ function isIgnoredUrl(url) {
   return !url || url.startsWith("about:") || url.startsWith("moz-extension:");
 }
 
-async function switchToTabAndClose(existingTabId, tabIdToClose) {
+// Cached enabled state (must be synchronous for webRequest)
+let extensionEnabled = true;
+
+async function loadEnabledState() {
+  const { enabled = true } = await browser.storage.local.get("enabled");
+  extensionEnabled = enabled;
+}
+
+browser.storage.onChanged.addListener((changes) => {
+  if (changes.enabled) {
+    extensionEnabled = changes.enabled.newValue;
+  }
+});
+
+async function notify(message) {
+  const { notifications = true } = await browser.storage.local.get("notifications");
+  if (!notifications) return;
+  browser.notifications.create({
+    type: "basic",
+    title: "Reuse Tabs",
+    message,
+  });
+}
+
+function shortenUrl(url) {
+  try {
+    const u = new URL(url);
+    const path = u.pathname === "/" ? "" : u.pathname;
+    return u.hostname + path;
+  } catch {
+    return url;
+  }
+}
+
+async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
   await browser.tabs.update(existingTabId, { active: true });
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
   await browser.tabs.remove(tabIdToClose);
+  notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(url)}`);
 }
 
 function applyExemptTitlePrefix(tabId) {
@@ -69,6 +104,7 @@ browser.menus.onClicked.addListener(async (info, tab) => {
   pendingExemptDuplicate = false;
   exemptTabs.add(newTab.id);
   pendingNewTabs.delete(newTab.id);
+  notify(`Duplicated tab (exempt from reuse): ${shortenUrl(tab.url)}`);
 });
 
 // When a new tab is created, track it and check if it's already a duplicate
@@ -82,13 +118,15 @@ browser.tabs.onCreated.addListener(async (tab) => {
   pendingNewTabs.add(tab.id);
   setTimeout(() => pendingNewTabs.delete(tab.id), 5000);
 
+  if (!extensionEnabled) return;
+
   if (!isIgnoredUrl(tab.url)) {
     const existingTabIds = tabsByUrl.get(tab.url);
     if (existingTabIds) {
       const matchId = [...existingTabIds].find((id) => id !== tab.id);
       if (matchId !== undefined) {
         pendingNewTabs.delete(tab.id);
-        await switchToTabAndClose(matchId, tab.id);
+        await switchToTabAndClose(matchId, tab.id, tab.url);
         return;
       }
     }
@@ -112,13 +150,13 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   addToCache(changeInfo.url, tabId);
 
   // If this is a recently created tab, check for duplicates
-  if (pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
+  if (extensionEnabled && pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
     pendingNewTabs.delete(tabId);
     const existingTabIds = tabsByUrl.get(changeInfo.url);
     if (existingTabIds) {
       const matchId = [...existingTabIds].find((id) => id !== tabId);
       if (matchId !== undefined) {
-        await switchToTabAndClose(matchId, tabId);
+        await switchToTabAndClose(matchId, tabId, changeInfo.url);
       }
     }
   }
@@ -133,6 +171,7 @@ browser.tabs.onRemoved.addListener((tabId) => {
 // Block in-page navigation to URLs already open in another tab
 browser.webRequest.onBeforeRequest.addListener(
   (details) => {
+    if (!extensionEnabled) return;
     if (details.type !== "main_frame") return;
     if (isIgnoredUrl(details.url)) return;
     if (pendingExemptDuplicate || exemptTabs.has(details.tabId)) return;
@@ -155,6 +194,9 @@ browser.webRequest.onBeforeRequest.addListener(
     if (pendingNewTabs.has(details.tabId)) {
       pendingNewTabs.delete(details.tabId);
       browser.tabs.remove(details.tabId);
+      notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(details.url)}`);
+    } else {
+      notify(`Cancelled navigation and switched to existing tab: ${shortenUrl(details.url)}`);
     }
 
     // Cancel the navigation
@@ -164,4 +206,5 @@ browser.webRequest.onBeforeRequest.addListener(
   ["blocking"]
 );
 
+loadEnabledState();
 initCache();

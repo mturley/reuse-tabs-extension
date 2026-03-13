@@ -6,10 +6,16 @@
   "permissions": [
     "tabs",
     "menus",
+    "notifications",
+    "storage",
     "webRequest",
     "webRequestBlocking",
     "<all_urls>"
   ],
+  "browser_action": {
+    "default_popup": "popup.html",
+    "default_title": "Reuse Tabs"
+  },
   "background": {
     "scripts": ["background.js"]
   },
