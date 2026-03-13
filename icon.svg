@@ -1,13 +1,13 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <!-- Back tab -->
-  <rect x="8" y="14" width="36" height="28" rx="4" fill="#8ab4f8" stroke="#4a86d4" stroke-width="2"/>
-  <rect x="8" y="14" width="16" height="8" rx="3" fill="#4a86d4"/>
-
-  <!-- Front tab -->
-  <rect x="20" y="24" width="36" height="28" rx="4" fill="#c8e0ff" stroke="#4a86d4" stroke-width="2"/>
-  <rect x="20" y="24" width="16" height="8" rx="3" fill="#4a86d4"/>
-
-  <!-- Curved arrow: reuse/switch -->
-  <path d="M48 16 C56 16, 60 24, 56 32" stroke="#2d5fa0" stroke-width="3" fill="none" stroke-linecap="round"/>
-  <polygon points="53,34 59,34 56,28" fill="#2d5fa0"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">
+  <!-- Back tab body -->
+  <rect x="0" y="4" width="10" height="8" rx="1.5" fill="#4a86d4"/>
+  <!-- Back tab handle -->
+  <rect x="0" y="2" width="5" height="3" rx="1" fill="#4a86d4"/>
+  <!-- Front tab body -->
+  <rect x="4" y="7" width="10" height="8" rx="1.5" fill="#8ab4f8"/>
+  <!-- Front tab handle -->
+  <rect x="4" y="5" width="5" height="3" rx="1" fill="#8ab4f8"/>
+  <!-- Arrow -->
+  <path d="M12.5 2 C14.5 2, 15.5 4.5, 14 6.5" stroke="#4a86d4" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+  <polygon points="12.5,7.5 15.5,7.5 14,5" fill="#4a86d4"/>
 </svg>
