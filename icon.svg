@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Back tab -->
+  <rect x="8" y="14" width="36" height="28" rx="4" fill="#8ab4f8" stroke="#4a86d4" stroke-width="2"/>
+  <rect x="8" y="14" width="16" height="8" rx="3" fill="#4a86d4"/>
+
+  <!-- Front tab -->
+  <rect x="20" y="24" width="36" height="28" rx="4" fill="#c8e0ff" stroke="#4a86d4" stroke-width="2"/>
+  <rect x="20" y="24" width="16" height="8" rx="3" fill="#4a86d4"/>
+
+  <!-- Curved arrow: reuse/switch -->
+  <path d="M48 16 C56 16, 60 24, 56 32" stroke="#2d5fa0" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <polygon points="53,34 59,34 56,28" fill="#2d5fa0"/>
+</svg>
