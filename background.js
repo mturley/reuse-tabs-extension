@@ -7,6 +7,9 @@ const pendingNewTabs = new Set();
 // Track tab IDs that are exempt from reuse logic (intentional duplicates)
 const exemptTabs = new Set();
 
+// Flag: when set, the next tab created by browser.tabs.duplicate() should be exempt
+let pendingExemptDuplicate = false;
+
 // Initialize the cache with all currently open tabs
 async function initCache() {
   const tabs = await browser.tabs.query({});
@@ -61,18 +64,23 @@ browser.menus.create({
 
 browser.menus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== "duplicate-exempt") return;
+  pendingExemptDuplicate = true;
   const newTab = await browser.tabs.duplicate(tab.id);
+  pendingExemptDuplicate = false;
   exemptTabs.add(newTab.id);
   pendingNewTabs.delete(newTab.id);
-  applyExemptTitlePrefix(newTab.id);
 });
 
 // When a new tab is created, track it and check if it's already a duplicate
 browser.tabs.onCreated.addListener(async (tab) => {
+  // If this tab was created by our "duplicate exempt" action, mark it immediately
+  if (pendingExemptDuplicate) {
+    exemptTabs.add(tab.id);
+    return;
+  }
+
   pendingNewTabs.add(tab.id);
   setTimeout(() => pendingNewTabs.delete(tab.id), 5000);
-
-  if (exemptTabs.has(tab.id)) return;
 
   if (!isIgnoredUrl(tab.url)) {
     const existingTabIds = tabsByUrl.get(tab.url);
@@ -89,10 +97,11 @@ browser.tabs.onCreated.addListener(async (tab) => {
 
 // Keep the cache up to date and catch new tabs that get their URL after creation
 browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
-  // Re-apply [D] prefix for exempt tabs when title changes
+  // Apply or re-apply [D] prefix for exempt tabs when title changes
   if (changeInfo.title && exemptTabs.has(tabId)) {
     if (!changeInfo.title.startsWith("[D] ")) {
-      applyExemptTitlePrefix(tabId);
+      // Wait briefly for the page to settle before applying the prefix
+      setTimeout(() => applyExemptTitlePrefix(tabId), 100);
     }
   }
 
@@ -126,6 +135,7 @@ browser.webRequest.onBeforeRequest.addListener(
   (details) => {
     if (details.type !== "main_frame") return;
     if (isIgnoredUrl(details.url)) return;
+    if (pendingExemptDuplicate || exemptTabs.has(details.tabId)) return;
 
     const existingTabIds = tabsByUrl.get(details.url);
     if (!existingTabIds) return;
