@@ -61,7 +61,6 @@ browser.storage.onChanged.addListener((changes) => {
 });
 
 async function notify(message, tabId) {
-  console.log("[Reuse Tabs]", message);
   const { notifications = true } = await browser.storage.local.get("notifications");
   if (!notifications) return;
   // Show toast in the target tab (the one we switched to)

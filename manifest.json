@@ -1,8 +1,8 @@
 {
   "manifest_version": 2,
   "name": "Reuse Tabs",
-  "version": "1.0.0",
-  "description": "When navigating to a URL that's already open in another tab, switch to that tab instead.",
+  "version": "0.0.1",
+  "description": "Prevents duplicate tabs by switching to existing ones. Handles in-page navigation, external apps, and offers exempt duplicates, stale tab reloading, and toast notifications.",
   "permissions": [
     "tabs",
     "menus",
