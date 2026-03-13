@@ -41,6 +41,10 @@ Sign the extension via [Mozilla's Add-on Developer Hub](https://addons.mozilla.o
 - **webRequest / webRequestBlocking** — Intercept and cancel navigations
 - **\<all_urls\>** — Required for webRequest to match all URLs and for injecting toast notifications
 
+## Disclaimer
+
+This extension was vibe-coded with [Claude Code](https://claude.ai/code). Use at your own risk.
+
 ## License
 
 [CC0 1.0](LICENSE) — Public domain.
