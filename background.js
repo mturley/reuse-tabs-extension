@@ -71,7 +71,7 @@ async function notify(message, tabId) {
     code: `(function() {
       const el = document.createElement("div");
       el.textContent = ${JSON.stringify(message)};
-      el.style.cssText = "position:fixed;top:16px;right:16px;z-index:2147483647;background:#323232;color:#fff;padding:12px 20px;border-radius:8px;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;max-width:400px;";
+      el.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:2147483647;background:#323232;color:#fff;padding:12px 20px;border-radius:8px;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;max-width:400px;";
       document.body.appendChild(el);
       requestAnimationFrame(() => el.style.opacity = "1");
       setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }, 3000);
