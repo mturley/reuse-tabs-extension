@@ -1,0 +1,15 @@
+{
+  "categories": {
+    "firefox": ["tabs"]
+  },
+  "version": {
+    "custom_license": {
+      "name": {
+        "en-US": "CC0 1.0 Universal"
+      },
+      "text": {
+        "en-US": "Creative Commons Zero v1.0 Universal - https://creativecommons.org/publicdomain/zero/1.0/"
+      }
+    }
+  }
+}
