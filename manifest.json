@@ -6,7 +6,6 @@
   "permissions": [
     "tabs",
     "menus",
-    "notifications",
     "storage",
     "webRequest",
     "webRequestBlocking",

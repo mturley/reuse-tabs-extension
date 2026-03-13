@@ -56,14 +56,23 @@ browser.storage.onChanged.addListener((changes) => {
   }
 });
 
-async function notify(message) {
+async function notify(message, tabId) {
+  console.log("[Reuse Tabs]", message);
   const { notifications = true } = await browser.storage.local.get("notifications");
   if (!notifications) return;
-  browser.notifications.create({
-    type: "basic",
-    title: "Reuse Tabs",
-    message,
-  });
+  // Show toast in the target tab (the one we switched to)
+  const targetTabId = tabId || (await browser.tabs.query({ active: true, currentWindow: true }))[0]?.id;
+  if (!targetTabId) return;
+  browser.tabs.executeScript(targetTabId, {
+    code: `(function() {
+      const el = document.createElement("div");
+      el.textContent = ${JSON.stringify(message)};
+      el.style.cssText = "position:fixed;top:16px;right:16px;z-index:2147483647;background:#323232;color:#fff;padding:12px 20px;border-radius:8px;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;max-width:400px;";
+      document.body.appendChild(el);
+      requestAnimationFrame(() => el.style.opacity = "1");
+      setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }, 3000);
+    })();`,
+  }).catch(() => {});
 }
 
 function shortenUrl(url) {
@@ -81,7 +90,7 @@ async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
   await browser.tabs.remove(tabIdToClose);
-  notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(url)}`);
+  notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(url)}`, existingTabId);
 }
 
 function applyExemptTitlePrefix(tabId) {
@@ -194,9 +203,9 @@ browser.webRequest.onBeforeRequest.addListener(
     if (pendingNewTabs.has(details.tabId)) {
       pendingNewTabs.delete(details.tabId);
       browser.tabs.remove(details.tabId);
-      notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(details.url)}`);
+      notify(`Closed duplicate tab and switched to existing tab: ${shortenUrl(details.url)}`, matchId);
     } else {
-      notify(`Cancelled navigation and switched to existing tab: ${shortenUrl(details.url)}`);
+      notify(`Cancelled navigation and switched to existing tab: ${shortenUrl(details.url)}`, matchId);
     }
 
     // Cancel the navigation
