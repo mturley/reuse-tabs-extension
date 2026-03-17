@@ -79,4 +79,4 @@ echo ""
 echo "Signing version $new_version on the $channel channel..."
 echo ""
 
-web-ext sign --channel="$channel" --api-key="$WEB_EXT_API_KEY" --api-secret="$WEB_EXT_API_SECRET"
+npx web-ext sign --channel="$channel" --api-key="$WEB_EXT_API_KEY" --api-secret="$WEB_EXT_API_SECRET"
