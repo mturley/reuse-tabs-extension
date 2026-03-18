@@ -30,9 +30,12 @@ Unlike other duplicate-tab-closer extensions that only catch new tabs being open
 2. Click "Load Temporary Add-on..."
 3. Select the `manifest.json` file
 
-### Permanent
+### Permanent (self-signed)
 
-Sign the extension via [Mozilla's Add-on Developer Hub](https://addons.mozilla.org/developers/) and install the signed `.xpi` file.
+1. Get API credentials from [Mozilla's Add-on Developer Hub](https://addons.mozilla.org/developers/addon/api/key/)
+2. Copy `.env.example` to `.env` and fill in your `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`
+3. Run `./sign.sh` — it will prompt you to bump the version and choose a channel (listed/unlisted)
+4. Install the signed `.xpi` file from the `web-ext-artifacts/` directory
 
 ## Permissions
 
@@ -42,6 +45,17 @@ Sign the extension via [Mozilla's Add-on Developer Hub](https://addons.mozilla.o
 - **webRequest / webRequestBlocking** — Intercept and cancel navigations
 - **tabHide** — Show hidden tabs (used for Zen Browser workspace support; no-op in regular Firefox)
 - **\<all_urls\>** — Required for webRequest to match all URLs and for injecting toast notifications
+
+## Development
+
+### Running tests
+
+```bash
+npm install
+npm test
+```
+
+Tests use [Jest](https://jestjs.io/) with [jest-webextension-mock](https://github.com/clarkbw/jest-webextension-mock) to mock the `browser.*` API. Tests run automatically on push to `main` and on pull requests via GitHub Actions.
 
 ## Disclaimer
 

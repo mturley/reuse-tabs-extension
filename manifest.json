@@ -23,6 +23,7 @@
   },
   "background": {
     "scripts": [
+      "background-core.js",
       "background.js"
     ]
   },

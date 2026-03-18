@@ -1,0 +1,13 @@
+{
+  "name": "reuse-tabs-extension",
+  "private": true,
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-webextension-mock": "^3.9.0"
+  }
+}
