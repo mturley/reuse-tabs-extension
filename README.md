@@ -1,6 +1,6 @@
 # Reuse Tabs
 
-A Firefox extension that prevents duplicate tabs. When you navigate to a URL that's already open in another tab, the navigation is cancelled and you're switched to the existing tab instead.
+A Firefox extension that prevents duplicate tabs. When you navigate to a URL that's already open in another tab, the navigation is cancelled and you're switched to the existing tab instead. Works in both Firefox and [Zen Browser](https://zen-browser.app/).
 
 Unlike other duplicate-tab-closer extensions that only catch new tabs being opened, Reuse Tabs also handles in-page navigation (clicking links in the current tab) and tabs opened by external apps.
 
@@ -8,6 +8,7 @@ Unlike other duplicate-tab-closer extensions that only catch new tabs being open
 
 - **Duplicate tab prevention** — Intercepts navigations and new tabs, switching to the existing tab instead of creating a duplicate.
 - **External app handling** — When an external app opens a URL that's already in a tab, the new tab is closed and the existing one is focused.
+- **Zen Browser workspace support** — In Zen Browser, tabs in other Workspaces (Spaces) are detected and switched to across workspaces, so you're always taken to the existing tab regardless of which workspace it's in.
 - **Exempt duplicates** — Right-click a tab and choose "Duplicate tab (exclude from Reuse Tabs)" to intentionally duplicate it. Exempt tabs are marked with a `[D]` title prefix and ignored by the extension.
 - **Reload on switch** — Optionally reload stale tabs when switching to them, with a configurable idle timeout (1 min to 1 hour, or always).
 - **In-page toast notifications** — See what the extension is doing with unobtrusive toast messages in the bottom-left corner of the page.
@@ -39,6 +40,7 @@ Sign the extension via [Mozilla's Add-on Developer Hub](https://addons.mozilla.o
 - **menus** — Add context menu items to the tab strip
 - **storage** — Persist extension settings (enabled, notifications, reload options)
 - **webRequest / webRequestBlocking** — Intercept and cancel navigations
+- **tabHide** — Show hidden tabs (used for Zen Browser workspace support; no-op in regular Firefox)
 - **\<all_urls\>** — Required for webRequest to match all URLs and for injecting toast notifications
 
 ## Disclaimer
