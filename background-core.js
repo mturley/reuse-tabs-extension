@@ -19,10 +19,23 @@ const tabLastNavigated = new Map();
 // Cached enabled state (must be synchronous for webRequest)
 let extensionEnabled = true;
 
-// Initialize the cache with all currently open tabs
+// Accessors for primitive state (needed because primitives can't be shared by reference)
+function getState() {
+  return { extensionEnabled, startupComplete, pendingExemptDuplicate };
+}
+
+function setState(s) {
+  if ('extensionEnabled' in s) extensionEnabled = s.extensionEnabled;
+  if ('startupComplete' in s) startupComplete = s.startupComplete;
+  if ('pendingExemptDuplicate' in s) pendingExemptDuplicate = s.pendingExemptDuplicate;
+}
+
+// Initialize the cache with all currently open tabs (including hidden ones for Zen workspaces)
 async function initCache() {
-  const tabs = await browser.tabs.query({});
-  for (const tab of tabs) {
+  const visible = await browser.tabs.query({});
+  const hidden = await browser.tabs.query({ hidden: true });
+  const allTabs = [...visible, ...hidden];
+  for (const tab of allTabs) {
     if (tab.url) {
       addToCache(tab.url, tab.id);
     }
@@ -142,12 +155,7 @@ function findExistingTab(url, excludeTabId) {
 if (typeof module !== 'undefined') {
   module.exports = {
     tabsByUrl, pendingNewTabs, exemptTabs, tabLastNavigated,
-    getState: () => ({ extensionEnabled, startupComplete, pendingExemptDuplicate }),
-    setState: (s) => {
-      if ('extensionEnabled' in s) extensionEnabled = s.extensionEnabled;
-      if ('startupComplete' in s) startupComplete = s.startupComplete;
-      if ('pendingExemptDuplicate' in s) pendingExemptDuplicate = s.pendingExemptDuplicate;
-    },
+    getState, setState,
     isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
     initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
     ensureTabVisible, switchToTabAndClose, notify, applyExemptTitlePrefix,

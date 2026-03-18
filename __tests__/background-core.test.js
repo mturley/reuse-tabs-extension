@@ -120,21 +120,28 @@ describe('addToCache / removeTabFromCache', () => {
 });
 
 describe('initCache', () => {
-  test('populates cache from browser.tabs.query', async () => {
-    browser.tabs.query.mockResolvedValue([
-      { id: 1, url: 'https://a.com' },
-      { id: 2, url: 'https://b.com' },
-    ]);
+  test('populates cache from visible tabs', async () => {
+    browser.tabs.query
+      .mockResolvedValueOnce([{ id: 1, url: 'https://a.com' }, { id: 2, url: 'https://b.com' }])
+      .mockResolvedValueOnce([]);
+    await initCache();
+    expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
+    expect(tabsByUrl.get('https://b.com').has(2)).toBe(true);
+  });
+
+  test('includes hidden tabs (other Zen workspaces)', async () => {
+    browser.tabs.query
+      .mockResolvedValueOnce([{ id: 1, url: 'https://a.com' }])
+      .mockResolvedValueOnce([{ id: 2, url: 'https://b.com' }]);
     await initCache();
     expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
     expect(tabsByUrl.get('https://b.com').has(2)).toBe(true);
   });
 
   test('skips tabs without URLs', async () => {
-    browser.tabs.query.mockResolvedValue([
-      { id: 1 },
-      { id: 2, url: 'https://b.com' },
-    ]);
+    browser.tabs.query
+      .mockResolvedValueOnce([{ id: 1 }, { id: 2, url: 'https://b.com' }])
+      .mockResolvedValueOnce([]);
     await initCache();
     expect(tabsByUrl.size).toBe(1);
   });
