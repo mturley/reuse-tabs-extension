@@ -105,7 +105,15 @@ async function maybeReloadTab(tabId) {
   return true;
 }
 
+async function ensureTabVisible(tabId) {
+  const tab = await browser.tabs.get(tabId);
+  if (tab.hidden) {
+    await browser.tabs.show(tabId);
+  }
+}
+
 async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
+  await ensureTabVisible(existingTabId);
   await browser.tabs.update(existingTabId, { active: true });
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
@@ -219,10 +227,13 @@ browser.webRequest.onBeforeRequest.addListener(
     );
     if (matchId === undefined) return;
 
-    // Switch to the existing tab
-    browser.tabs.update(matchId, { active: true });
+    // Switch to the existing tab (show it first if hidden, e.g. in another Zen workspace)
     browser.tabs.get(matchId).then((tab) => {
-      browser.windows.update(tab.windowId, { focused: true });
+      const p = tab.hidden ? browser.tabs.show(matchId) : Promise.resolve();
+      p.then(() => {
+        browser.tabs.update(matchId, { active: true });
+        browser.windows.update(tab.windowId, { focused: true });
+      });
     });
     // If this was a newly opened tab (e.g. from an external app), close it
     const closedNew = pendingNewTabs.has(details.tabId);

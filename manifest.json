@@ -9,6 +9,7 @@
     "storage",
     "webRequest",
     "webRequestBlocking",
+    "tabHide",
     "<all_urls>"
   ],
   "icons": {
