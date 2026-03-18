@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Reuse Tabs",
-  "version": "0.0.5",
+  "version": "0.0.7",
   "description": "Prevents duplicate tabs by switching to existing ones. Handles in-page navigation, external apps, and offers exempt duplicates, stale tab reloading, and toast notifications.",
   "permissions": [
     "tabs",
@@ -9,7 +9,6 @@
     "storage",
     "webRequest",
     "webRequestBlocking",
-    "tabHide",
     "<all_urls>"
   ],
   "icons": {

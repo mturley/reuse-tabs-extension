@@ -91,13 +91,10 @@ browser.webRequest.onBeforeRequest.addListener(
     const matchId = findExistingTab(details.url, details.tabId);
     if (matchId === undefined) return;
 
-    // Switch to the existing tab (show it first if hidden, e.g. in another Zen workspace)
+    // Switch to the existing tab
+    browser.tabs.update(matchId, { active: true });
     browser.tabs.get(matchId).then((tab) => {
-      const p = tab.hidden ? browser.tabs.show(matchId) : Promise.resolve();
-      p.then(() => {
-        browser.tabs.update(matchId, { active: true });
-        browser.windows.update(tab.windowId, { focused: true });
-      });
+      browser.windows.update(tab.windowId, { focused: true });
     });
     // If this was a newly opened tab (e.g. from an external app), close it
     const closedNew = pendingNewTabs.has(details.tabId);

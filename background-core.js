@@ -30,12 +30,10 @@ function setState(s) {
   if ('pendingExemptDuplicate' in s) pendingExemptDuplicate = s.pendingExemptDuplicate;
 }
 
-// Initialize the cache with all currently open tabs (including hidden ones for Zen workspaces)
+// Initialize the cache with all currently open tabs
 async function initCache() {
-  const visible = await browser.tabs.query({});
-  const hidden = await browser.tabs.query({ hidden: true });
-  const allTabs = [...visible, ...hidden];
-  for (const tab of allTabs) {
+  const tabs = await browser.tabs.query({});
+  for (const tab of tabs) {
     if (tab.url) {
       addToCache(tab.url, tab.id);
     }
@@ -118,15 +116,7 @@ async function maybeReloadTab(tabId) {
   return true;
 }
 
-async function ensureTabVisible(tabId) {
-  const tab = await browser.tabs.get(tabId);
-  if (tab.hidden) {
-    await browser.tabs.show(tabId);
-  }
-}
-
 async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
-  await ensureTabVisible(existingTabId);
   await browser.tabs.update(existingTabId, { active: true });
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
@@ -158,7 +148,7 @@ if (typeof module !== 'undefined') {
     getState, setState,
     isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
     initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
-    ensureTabVisible, switchToTabAndClose, notify, applyExemptTitlePrefix,
+    switchToTabAndClose, notify, applyExemptTitlePrefix,
     findExistingTab,
   };
 }

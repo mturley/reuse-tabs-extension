@@ -3,19 +3,18 @@ const {
   getState, setState,
   isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
   initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
-  ensureTabVisible, switchToTabAndClose, notify,
+  switchToTabAndClose, notify,
   findExistingTab,
 } = require('../background-core');
 
 // Add mocks for APIs not covered by jest-webextension-mock
 beforeEach(() => {
-  browser.tabs.show = jest.fn().mockResolvedValue(undefined);
   browser.tabs.executeScript = jest.fn().mockResolvedValue(undefined);
   browser.tabs.reload = jest.fn().mockResolvedValue(undefined);
   browser.tabs.remove = jest.fn().mockResolvedValue(undefined);
   browser.tabs.update = jest.fn().mockResolvedValue(undefined);
   browser.tabs.duplicate = jest.fn().mockResolvedValue({ id: 99 });
-  browser.tabs.get = jest.fn().mockResolvedValue({ id: 1, windowId: 1, hidden: false });
+  browser.tabs.get = jest.fn().mockResolvedValue({ id: 1, windowId: 1 });
   browser.tabs.query = jest.fn().mockResolvedValue([]);
   if (!browser.windows) browser.windows = {};
   browser.windows.update = jest.fn().mockResolvedValue(undefined);
@@ -120,28 +119,21 @@ describe('addToCache / removeTabFromCache', () => {
 });
 
 describe('initCache', () => {
-  test('populates cache from visible tabs', async () => {
-    browser.tabs.query
-      .mockResolvedValueOnce([{ id: 1, url: 'https://a.com' }, { id: 2, url: 'https://b.com' }])
-      .mockResolvedValueOnce([]);
-    await initCache();
-    expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
-    expect(tabsByUrl.get('https://b.com').has(2)).toBe(true);
-  });
-
-  test('includes hidden tabs (other Zen workspaces)', async () => {
-    browser.tabs.query
-      .mockResolvedValueOnce([{ id: 1, url: 'https://a.com' }])
-      .mockResolvedValueOnce([{ id: 2, url: 'https://b.com' }]);
+  test('populates cache from browser.tabs.query', async () => {
+    browser.tabs.query.mockResolvedValue([
+      { id: 1, url: 'https://a.com' },
+      { id: 2, url: 'https://b.com' },
+    ]);
     await initCache();
     expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
     expect(tabsByUrl.get('https://b.com').has(2)).toBe(true);
   });
 
   test('skips tabs without URLs', async () => {
-    browser.tabs.query
-      .mockResolvedValueOnce([{ id: 1 }, { id: 2, url: 'https://b.com' }])
-      .mockResolvedValueOnce([]);
+    browser.tabs.query.mockResolvedValue([
+      { id: 1 },
+      { id: 2, url: 'https://b.com' },
+    ]);
     await initCache();
     expect(tabsByUrl.size).toBe(1);
   });
@@ -239,41 +231,19 @@ describe('maybeReloadTab', () => {
   });
 });
 
-describe('ensureTabVisible', () => {
-  test('calls browser.tabs.show when tab is hidden', async () => {
-    browser.tabs.get.mockResolvedValue({ id: 1, hidden: true });
-    await ensureTabVisible(1);
-    expect(browser.tabs.show).toHaveBeenCalledWith(1);
-  });
-
-  test('does not call browser.tabs.show when tab is visible', async () => {
-    browser.tabs.get.mockResolvedValue({ id: 1, hidden: false });
-    await ensureTabVisible(1);
-    expect(browser.tabs.show).not.toHaveBeenCalled();
-  });
-});
-
 describe('switchToTabAndClose', () => {
   beforeEach(() => {
-    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10, hidden: false });
+    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10 });
     browser.storage.local.get.mockResolvedValue({ reloadOnSwitch: false, notifications: false });
   });
 
-  test('ensures tab is visible, activates, focuses window, and closes duplicate', async () => {
+  test('activates tab, focuses window, and closes duplicate', async () => {
     await switchToTabAndClose(1, 2, 'https://example.com');
 
-    expect(browser.tabs.get).toHaveBeenCalledWith(1);
     expect(browser.tabs.update).toHaveBeenCalledWith(1, { active: true });
+    expect(browser.tabs.get).toHaveBeenCalledWith(1);
     expect(browser.windows.update).toHaveBeenCalledWith(10, { focused: true });
     expect(browser.tabs.remove).toHaveBeenCalledWith(2);
-  });
-
-  test('shows hidden tab before activating', async () => {
-    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10, hidden: true });
-    await switchToTabAndClose(1, 2, 'https://example.com');
-
-    expect(browser.tabs.show).toHaveBeenCalledWith(1);
-    expect(browser.tabs.update).toHaveBeenCalledWith(1, { active: true });
   });
 });
 
