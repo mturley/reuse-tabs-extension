@@ -20,21 +20,6 @@ A Firefox extension that prevents duplicate tabs. When you navigate to a URL tha
 4. Tracks recently created tabs to catch duplicates opened by external apps and close the blank leftover tab.
 5. Exempt tabs are tracked separately and skipped as switch targets, but navigation within them still triggers reuse logic.
 
-## Installation
-
-### Temporary (for development)
-
-1. Go to `about:debugging#/runtime/this-firefox`
-2. Click "Load Temporary Add-on..."
-3. Select the `manifest.json` file
-
-### Permanent (self-signed)
-
-1. Get API credentials from [Mozilla's Add-on Developer Hub](https://addons.mozilla.org/developers/addon/api/key/)
-2. Copy `.env.example` to `.env` and fill in your `WEB_EXT_API_KEY` and `WEB_EXT_API_SECRET`
-3. Run `./sign.sh` — it will prompt you to bump the version and choose a channel (listed/unlisted)
-4. Install the signed `.xpi` file from the `web-ext-artifacts/` directory
-
 ## Permissions
 
 - **tabs** — Query, switch between, duplicate, and reload tabs
@@ -44,6 +29,12 @@ A Firefox extension that prevents duplicate tabs. When you navigate to a URL tha
 - **\<all_urls\>** — Required for webRequest to match all URLs and for injecting toast notifications
 
 ## Development
+
+### Loading the extension for development
+
+1. Go to `about:debugging#/runtime/this-firefox`
+2. Click "Load Temporary Add-on..."
+3. Select the `manifest.json` file
 
 ### Running tests
 
