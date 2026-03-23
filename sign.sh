@@ -27,13 +27,15 @@ IFS='.' read -r major minor patch <<< "$current_version"
 
 echo ""
 echo "How would you like to bump the version?"
+echo "  0) no bump - retry publish at $current_version"
 echo "  1) patch ($major.$minor.$((patch + 1)))"
 echo "  2) minor ($major.$((minor + 1)).0)"
 echo "  3) major ($((major + 1)).0.0)"
 echo ""
-read -rp "Choose [1/2/3]: " bump_choice
+read -rp "Choose [0/1/2/3]: " bump_choice
 
 case "$bump_choice" in
+  0) new_version="$current_version" ;;
   1) new_version="$major.$minor.$((patch + 1))" ;;
   2) new_version="$major.$((minor + 1)).0" ;;
   3) new_version="$((major + 1)).0.0" ;;
@@ -43,10 +45,11 @@ case "$bump_choice" in
     ;;
 esac
 
-echo "New version: $new_version"
+if [[ "$new_version" != "$current_version" ]]; then
+  echo "New version: $new_version"
 
-# Update version in manifest.json
-python3 -c "
+  # Update version in manifest.json
+  python3 -c "
 import json
 with open('manifest.json', 'r') as f:
     manifest = json.load(f)
@@ -56,7 +59,10 @@ with open('manifest.json', 'w') as f:
     f.write('\n')
 "
 
-echo "Updated manifest.json to version $new_version"
+  echo "Updated manifest.json to version $new_version"
+else
+  echo "Retrying publish at version $current_version"
+fi
 
 # Choose channel
 echo ""
@@ -76,7 +82,7 @@ case "$channel_choice" in
 esac
 
 echo ""
-echo "Signing version $new_version on the $channel channel..."
+echo "Signing and publishing version $new_version on the $channel channel..."
 echo ""
 
-npx web-ext sign --channel="$channel" --api-key="$WEB_EXT_API_KEY" --api-secret="$WEB_EXT_API_SECRET"
+npx web-ext sign --channel="$channel" --api-key="$WEB_EXT_API_KEY" --api-secret="$WEB_EXT_API_SECRET" --amo-metadata="amo-metadata.json"
