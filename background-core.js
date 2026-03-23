@@ -84,10 +84,12 @@ async function notify(message, tabId) {
     code: `(function() {
       const el = document.createElement("div");
       el.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" style="width:20px;height:20px;flex-shrink:0;"><rect x="0" y="4" width="10" height="8" rx="1.5" fill="#4a86d4"/><rect x="0" y="2" width="5" height="3" rx="1" fill="#4a86d4"/><rect x="4" y="7" width="10" height="8" rx="1.5" fill="#8ab4f8"/><rect x="4" y="5" width="5" height="3" rx="1" fill="#8ab4f8"/><path d="M12.5 2 C14.5 2,15.5 4.5,14 6.5" stroke="#8ab4f8" stroke-width="1.5" fill="none" stroke-linecap="round"/><polygon points="12.5,7.5 15.5,7.5 14,5" fill="#8ab4f8"/></svg>' + '<span>' + ${JSON.stringify(message)} + '</span>';
-      el.style.cssText = "position:fixed;bottom:16px;left:16px;z-index:2147483647;background:#323232;color:#fff;padding:12px 20px;border-radius:8px;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;max-width:400px;display:flex;align-items:center;gap:10px;";
+      el.style.cssText = "position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:2147483647;background:#323232;color:#fff;padding:12px 20px;border-radius:8px;font:14px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;box-shadow:0 4px 12px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;max-width:400px;display:flex;align-items:center;gap:10px;cursor:pointer;";
       document.body.appendChild(el);
       requestAnimationFrame(() => el.style.opacity = "1");
-      setTimeout(() => { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); }, 3000);
+      var dismiss = function() { el.style.opacity = "0"; setTimeout(() => el.remove(), 300); };
+      el.addEventListener("click", dismiss);
+      setTimeout(dismiss, 2000);
     })();`,
   }).catch(() => {});
 }

@@ -1,8 +1,7 @@
 # Reuse Tabs
 
-A Firefox extension that prevents duplicate tabs. When you navigate to a URL that's already open in another tab, the navigation is cancelled and you're switched to the existing tab instead.
+A Firefox extension that prevents duplicate tabs. When you navigate to a URL that's already open in another tab (either by clicking a link or a new tab being opened from another app), the navigation is cancelled (or the new tab is closed) and you're switched to the existing tab instead.
 
-Unlike other duplicate-tab-closer extensions that only catch new tabs being opened, Reuse Tabs also handles in-page navigation (clicking links in the current tab) and tabs opened by external apps.
 
 ## Features
 
