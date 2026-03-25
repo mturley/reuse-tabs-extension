@@ -13,6 +13,9 @@ let pendingExemptDuplicate = false;
 // Grace period flag: skip duplicate detection during session restore
 let startupComplete = false;
 
+// Track which window each tab belongs to: Map<tabId, windowId>
+const tabWindowId = new Map();
+
 // Track when each tab last had a navigation (timestamp in ms)
 const tabLastNavigated = new Map();
 
@@ -35,16 +38,19 @@ async function initCache() {
   const tabs = await browser.tabs.query({});
   for (const tab of tabs) {
     if (tab.url) {
-      addToCache(tab.url, tab.id);
+      addToCache(tab.url, tab.id, tab.windowId);
     }
   }
 }
 
-function addToCache(url, tabId) {
+function addToCache(url, tabId, windowId) {
   if (!tabsByUrl.has(url)) {
     tabsByUrl.set(url, new Set());
   }
   tabsByUrl.get(url).add(tabId);
+  if (windowId !== undefined) {
+    tabWindowId.set(tabId, windowId);
+  }
   tabLastNavigated.set(tabId, Date.now());
 }
 
@@ -57,6 +63,7 @@ function removeTabFromCache(tabId) {
       }
     }
   }
+  tabWindowId.delete(tabId);
 }
 
 function isIgnoredUrl(url) {
@@ -134,19 +141,20 @@ function applyExemptTitlePrefix(tabId) {
   });
 }
 
-// Find an existing tab with the given URL, excluding excludeTabId and exempt tabs
-function findExistingTab(url, excludeTabId) {
+// Find an existing tab with the given URL in the same window, excluding excludeTabId and exempt tabs
+function findExistingTab(url, excludeTabId, windowId) {
   const existingTabIds = tabsByUrl.get(url);
   if (!existingTabIds) return undefined;
   return [...existingTabIds].find(
-    (id) => id !== excludeTabId && !exemptTabs.has(id)
+    (id) => id !== excludeTabId && !exemptTabs.has(id) &&
+      (windowId === undefined || tabWindowId.get(id) === windowId)
   );
 }
 
 // Conditional exports for testing (no-op in browser environment)
 if (typeof module !== 'undefined') {
   module.exports = {
-    tabsByUrl, pendingNewTabs, exemptTabs, tabLastNavigated,
+    tabsByUrl, pendingNewTabs, exemptTabs, tabWindowId, tabLastNavigated,
     getState, setState,
     isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
     initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,

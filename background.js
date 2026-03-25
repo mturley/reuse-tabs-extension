@@ -29,6 +29,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
   }
 
   pendingNewTabs.add(tab.id);
+  tabWindowId.set(tab.id, tab.windowId);
   setTimeout(() => pendingNewTabs.delete(tab.id), 5000);
 
   const { extensionEnabled, startupComplete } = getState();
@@ -36,7 +37,7 @@ browser.tabs.onCreated.addListener(async (tab) => {
   if (!startupComplete) return;
 
   if (!isIgnoredUrl(tab.url)) {
-    const matchId = findExistingTab(tab.url, tab.id);
+    const matchId = findExistingTab(tab.url, tab.id, tab.windowId);
     if (matchId !== undefined) {
       pendingNewTabs.delete(tab.id);
       await switchToTabAndClose(matchId, tab.id, tab.url);
@@ -57,14 +58,15 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
   if (!changeInfo.url) return;
 
   // Update the cache
+  const winId = tabWindowId.get(tabId);
   removeTabFromCache(tabId);
-  addToCache(changeInfo.url, tabId);
+  addToCache(changeInfo.url, tabId, winId);
 
   // If this is a recently created tab, check for duplicates
   const { extensionEnabled, startupComplete } = getState();
   if (startupComplete && extensionEnabled && pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
     pendingNewTabs.delete(tabId);
-    const matchId = findExistingTab(changeInfo.url, tabId);
+    const matchId = findExistingTab(changeInfo.url, tabId, winId);
     if (matchId !== undefined) {
       await switchToTabAndClose(matchId, tabId, changeInfo.url);
     }
@@ -88,7 +90,7 @@ browser.webRequest.onBeforeRequest.addListener(
     if (isIgnoredUrl(details.url)) return;
     if (pendingExemptDuplicate || exemptTabs.has(details.tabId)) return;
 
-    const matchId = findExistingTab(details.url, details.tabId);
+    const matchId = findExistingTab(details.url, details.tabId, tabWindowId.get(details.tabId));
     if (matchId === undefined) return;
 
     // Switch to the existing tab

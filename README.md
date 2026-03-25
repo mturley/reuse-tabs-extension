@@ -1,11 +1,11 @@
 # Reuse Tabs
 
-A Firefox extension that prevents duplicate tabs. When you navigate to a URL that's already open in another tab (either by clicking a link or a new tab being opened from another app), the navigation is cancelled (or the new tab is closed) and you're switched to the existing tab instead.
+A Firefox extension that prevents duplicate tabs within the same window. When you navigate to a URL that's already open in another tab in the same window (either by clicking a link or a new tab being opened from another app), the navigation is cancelled (or the new tab is closed) and you're switched to the existing tab instead. Tabs in different windows are independent and won't interfere with each other, which ensures compatibility with browsers like [Zen](https://zen-browser.app/) that sync tabs across windows.
 
 
 ## Features
 
-- **Duplicate tab prevention** — Intercepts navigations and new tabs, switching to the existing tab instead of creating a duplicate.
+- **Duplicate tab prevention** — Intercepts navigations and new tabs within the same window, switching to the existing tab instead of creating a duplicate.
 - **External app handling** — When an external app opens a URL that's already in a tab, the new tab is closed and the existing one is focused.
 - **Exempt duplicates** — Right-click a tab and choose "Duplicate tab (exclude from Reuse Tabs)" to intentionally duplicate it. Exempt tabs are marked with a `[D]` title prefix and ignored by the extension.
 - **Reload on switch** — Optionally reload stale tabs when switching to them, with a configurable idle timeout (1 min to 1 hour, or always).
@@ -16,7 +16,7 @@ A Firefox extension that prevents duplicate tabs. When you navigate to a URL tha
 
 1. Maintains a cache of all open tab URLs, kept in sync via tab event listeners.
 2. Uses `webRequest.onBeforeRequest` with blocking to intercept navigations before they happen.
-3. If the target URL is already open in another tab, cancels the navigation and switches to that tab.
+3. If the target URL is already open in another tab in the same window, cancels the navigation and switches to that tab.
 4. Tracks recently created tabs to catch duplicates opened by external apps and close the blank leftover tab.
 5. Exempt tabs are tracked separately and skipped as switch targets, but navigation within them still triggers reuse logic.
 

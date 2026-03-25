@@ -1,5 +1,5 @@
 const {
-  tabsByUrl, pendingNewTabs, exemptTabs, tabLastNavigated,
+  tabsByUrl, pendingNewTabs, exemptTabs, tabWindowId, tabLastNavigated,
   getState, setState,
   isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
   initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
@@ -24,6 +24,7 @@ beforeEach(() => {
   tabsByUrl.clear();
   pendingNewTabs.clear();
   exemptTabs.clear();
+  tabWindowId.clear();
   tabLastNavigated.clear();
   setState({ extensionEnabled: true, startupComplete: true, pendingExemptDuplicate: false });
 });
@@ -75,44 +76,55 @@ describe('shortenUrl', () => {
 
 describe('addToCache / removeTabFromCache', () => {
   test('adds a tab to the cache', () => {
-    addToCache('https://a.com', 1);
+    addToCache('https://a.com', 1, 10);
     expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
   });
 
   test('accumulates multiple tabs for the same URL', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://a.com', 2);
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 10);
     expect(tabsByUrl.get('https://a.com').size).toBe(2);
   });
 
   test('sets tabLastNavigated', () => {
-    addToCache('https://a.com', 1);
+    addToCache('https://a.com', 1, 10);
     expect(tabLastNavigated.has(1)).toBe(true);
   });
 
+  test('stores window ID', () => {
+    addToCache('https://a.com', 1, 10);
+    expect(tabWindowId.get(1)).toBe(10);
+  });
+
   test('removeTabFromCache removes tab from all URLs', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://b.com', 1);
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://b.com', 1, 10);
     removeTabFromCache(1);
     expect(tabsByUrl.has('https://a.com')).toBe(false);
     expect(tabsByUrl.has('https://b.com')).toBe(false);
   });
 
   test('removeTabFromCache cleans up empty URL entries', () => {
-    addToCache('https://a.com', 1);
+    addToCache('https://a.com', 1, 10);
     removeTabFromCache(1);
     expect(tabsByUrl.has('https://a.com')).toBe(false);
   });
 
   test('removeTabFromCache preserves other tabs for the same URL', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://a.com', 2);
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 10);
     removeTabFromCache(1);
     expect(tabsByUrl.get('https://a.com').has(2)).toBe(true);
   });
 
+  test('removeTabFromCache cleans up window ID', () => {
+    addToCache('https://a.com', 1, 10);
+    removeTabFromCache(1);
+    expect(tabWindowId.has(1)).toBe(false);
+  });
+
   test('removeTabFromCache is a no-op for unknown tab', () => {
-    addToCache('https://a.com', 1);
+    addToCache('https://a.com', 1, 10);
     removeTabFromCache(999);
     expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
   });
@@ -121,18 +133,28 @@ describe('addToCache / removeTabFromCache', () => {
 describe('initCache', () => {
   test('populates cache from browser.tabs.query', async () => {
     browser.tabs.query.mockResolvedValue([
-      { id: 1, url: 'https://a.com' },
-      { id: 2, url: 'https://b.com' },
+      { id: 1, url: 'https://a.com', windowId: 10 },
+      { id: 2, url: 'https://b.com', windowId: 10 },
     ]);
     await initCache();
     expect(tabsByUrl.get('https://a.com').has(1)).toBe(true);
     expect(tabsByUrl.get('https://b.com').has(2)).toBe(true);
   });
 
+  test('stores window IDs from tabs', async () => {
+    browser.tabs.query.mockResolvedValue([
+      { id: 1, url: 'https://a.com', windowId: 10 },
+      { id: 2, url: 'https://b.com', windowId: 20 },
+    ]);
+    await initCache();
+    expect(tabWindowId.get(1)).toBe(10);
+    expect(tabWindowId.get(2)).toBe(20);
+  });
+
   test('skips tabs without URLs', async () => {
     browser.tabs.query.mockResolvedValue([
-      { id: 1 },
-      { id: 2, url: 'https://b.com' },
+      { id: 1, windowId: 10 },
+      { id: 2, url: 'https://b.com', windowId: 10 },
     ]);
     await initCache();
     expect(tabsByUrl.size).toBe(1);
@@ -140,34 +162,47 @@ describe('initCache', () => {
 });
 
 describe('findExistingTab', () => {
-  test('finds a matching tab excluding self', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://a.com', 2);
-    expect(findExistingTab('https://a.com', 2)).toBe(1);
+  test('finds a matching tab in the same window', () => {
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 10);
+    expect(findExistingTab('https://a.com', 2, 10)).toBe(1);
   });
 
   test('returns undefined when URL is not in cache', () => {
-    expect(findExistingTab('https://unknown.com', 1)).toBeUndefined();
+    expect(findExistingTab('https://unknown.com', 1, 10)).toBeUndefined();
   });
 
   test('returns undefined when only tab is the excluded one', () => {
-    addToCache('https://a.com', 1);
-    expect(findExistingTab('https://a.com', 1)).toBeUndefined();
+    addToCache('https://a.com', 1, 10);
+    expect(findExistingTab('https://a.com', 1, 10)).toBeUndefined();
   });
 
   test('skips exempt tabs', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://a.com', 2);
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 10);
     exemptTabs.add(1);
-    expect(findExistingTab('https://a.com', 2)).toBeUndefined();
+    expect(findExistingTab('https://a.com', 2, 10)).toBeUndefined();
   });
 
   test('finds non-exempt tab when some are exempt', () => {
-    addToCache('https://a.com', 1);
-    addToCache('https://a.com', 2);
-    addToCache('https://a.com', 3);
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 10);
+    addToCache('https://a.com', 3, 10);
     exemptTabs.add(1);
-    expect(findExistingTab('https://a.com', 3)).toBe(2);
+    expect(findExistingTab('https://a.com', 3, 10)).toBe(2);
+  });
+
+  test('does not match tabs in a different window', () => {
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 20);
+    expect(findExistingTab('https://a.com', 2, 20)).toBeUndefined();
+  });
+
+  test('matches only tabs in the same window when multiple windows have same URL', () => {
+    addToCache('https://a.com', 1, 10);
+    addToCache('https://a.com', 2, 20);
+    addToCache('https://a.com', 3, 10);
+    expect(findExistingTab('https://a.com', 3, 10)).toBe(1);
   });
 });
 
