@@ -93,6 +93,8 @@ browser.webRequest.onBeforeRequest.addListener(
     const matchId = findExistingTab(details.url, details.tabId, tabWindowId.get(details.tabId));
     if (matchId === undefined) return;
 
+    if (checkAndRecordOperation(`webRequestSwitch:${matchId}:${details.tabId}`)) return;
+
     // Switch to the existing tab
     browser.tabs.update(matchId, { active: true });
     browser.tabs.get(matchId).then((tab) => {

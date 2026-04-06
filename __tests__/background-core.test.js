@@ -1,10 +1,11 @@
 const {
   tabsByUrl, pendingNewTabs, exemptTabs, tabWindowId, tabLastNavigated,
+  recentOperations, OPERATION_COOLDOWN_MS,
   getState, setState,
   isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
   initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
   switchToTabAndClose, notify,
-  findExistingTab,
+  findExistingTab, checkAndRecordOperation,
 } = require('../background-core');
 
 // Add mocks for APIs not covered by jest-webextension-mock
@@ -26,6 +27,7 @@ beforeEach(() => {
   exemptTabs.clear();
   tabWindowId.clear();
   tabLastNavigated.clear();
+  recentOperations.clear();
   setState({ extensionEnabled: true, startupComplete: true, pendingExemptDuplicate: false });
 });
 
@@ -301,6 +303,46 @@ describe('notify', () => {
     await notify('test message');
     expect(browser.tabs.query).toHaveBeenCalledWith({ active: true, currentWindow: true });
     expect(browser.tabs.executeScript).toHaveBeenCalledWith(5, expect.any(Object));
+  });
+});
+
+describe('checkAndRecordOperation', () => {
+  test('returns false on first call (not on cooldown)', () => {
+    expect(checkAndRecordOperation('test:1:2')).toBe(false);
+  });
+
+  test('returns true on immediate repeat (on cooldown)', () => {
+    checkAndRecordOperation('test:1:2');
+    expect(checkAndRecordOperation('test:1:2')).toBe(true);
+  });
+
+  test('returns false for a different operation key', () => {
+    checkAndRecordOperation('test:1:2');
+    expect(checkAndRecordOperation('test:3:4')).toBe(false);
+  });
+
+  test('returns false after cooldown expires', () => {
+    checkAndRecordOperation('test:1:2');
+    // Simulate cooldown expiry by backdating the entry
+    recentOperations.set('test:1:2', Date.now() - OPERATION_COOLDOWN_MS - 1);
+    expect(checkAndRecordOperation('test:1:2')).toBe(false);
+  });
+});
+
+describe('switchToTabAndClose cooldown', () => {
+  beforeEach(() => {
+    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10 });
+    browser.storage.local.get.mockResolvedValue({ reloadOnSwitch: false, notifications: false });
+  });
+
+  test('skips when the same operation was just performed', async () => {
+    await switchToTabAndClose(1, 2, 'https://example.com');
+    browser.tabs.update.mockClear();
+    browser.tabs.remove.mockClear();
+
+    await switchToTabAndClose(1, 2, 'https://example.com');
+    expect(browser.tabs.update).not.toHaveBeenCalled();
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
   });
 });
 

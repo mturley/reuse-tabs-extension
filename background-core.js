@@ -19,6 +19,11 @@ const tabWindowId = new Map();
 // Track when each tab last had a navigation (timestamp in ms)
 const tabLastNavigated = new Map();
 
+// Cooldown: track recent switch/close operations to prevent runaway loops
+// Map<string, number> where key is "operation:tabId" and value is timestamp
+const recentOperations = new Map();
+const OPERATION_COOLDOWN_MS = 1000;
+
 // Cached enabled state (must be synchronous for webRequest)
 let extensionEnabled = true;
 
@@ -125,7 +130,20 @@ async function maybeReloadTab(tabId) {
   return true;
 }
 
+// Returns true if the operation was recently performed (within cooldown), false otherwise.
+// If not on cooldown, records the operation timestamp.
+function checkAndRecordOperation(operationKey) {
+  const now = Date.now();
+  const lastTime = recentOperations.get(operationKey);
+  if (lastTime && (now - lastTime) < OPERATION_COOLDOWN_MS) {
+    return true; // on cooldown
+  }
+  recentOperations.set(operationKey, now);
+  return false;
+}
+
 async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
+  if (checkAndRecordOperation(`switchAndClose:${existingTabId}:${tabIdToClose}`)) return;
   await browser.tabs.update(existingTabId, { active: true });
   const existingTab = await browser.tabs.get(existingTabId);
   await browser.windows.update(existingTab.windowId, { focused: true });
@@ -155,10 +173,11 @@ function findExistingTab(url, excludeTabId, windowId) {
 if (typeof module !== 'undefined') {
   module.exports = {
     tabsByUrl, pendingNewTabs, exemptTabs, tabWindowId, tabLastNavigated,
+    recentOperations, OPERATION_COOLDOWN_MS,
     getState, setState,
     isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
     initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
     switchToTabAndClose, notify, applyExemptTitlePrefix,
-    findExistingTab,
+    findExistingTab, checkAndRecordOperation,
   };
 }
