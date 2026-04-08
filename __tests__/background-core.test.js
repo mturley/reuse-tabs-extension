@@ -5,7 +5,7 @@ const {
   isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
   initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
   switchToTabAndClose, notify,
-  findExistingTab, checkAndRecordOperation,
+  findExistingTab, checkAndRecordOperation, handlePinnedTabDuplicate,
 } = require('../background-core');
 
 // Add mocks for APIs not covered by jest-webextension-mock
@@ -28,7 +28,7 @@ beforeEach(() => {
   tabWindowId.clear();
   tabLastNavigated.clear();
   recentOperations.clear();
-  setState({ extensionEnabled: true, startupComplete: true, pendingExemptDuplicate: false });
+  setState({ extensionEnabled: true, startupComplete: true, pendingExemptDuplicate: false, liveFolderSupport: false });
 });
 
 describe('isIgnoredUrl', () => {
@@ -362,5 +362,88 @@ describe('getState / setState', () => {
     expect(state.extensionEnabled).toBe(false);
     expect(state.startupComplete).toBe(true);
     expect(state.pendingExemptDuplicate).toBe(false);
+  });
+});
+
+describe('handlePinnedTabDuplicate', () => {
+  beforeEach(() => {
+    browser.storage.local.get.mockResolvedValue({ notifications: false });
+  });
+
+  test('does nothing when liveFolderSupport is disabled', async () => {
+    setState({ liveFolderSupport: false });
+    addToCache('https://a.com', 1, 10);
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('does nothing when no duplicate exists', async () => {
+    setState({ liveFolderSupport: true });
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('closes unpinned duplicate when pinned tab appears', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('https://a.com', 1, 10);
+    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10, pinned: false });
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+
+    expect(browser.tabs.remove).toHaveBeenCalledWith(1);
+  });
+
+  test('does not close duplicate that is also pinned', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('https://a.com', 1, 10);
+    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10, pinned: true });
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('does not close duplicate in a different window', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('https://a.com', 1, 10);
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 20, pinned: true });
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('does not close exempt tabs', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('https://a.com', 1, 10);
+    exemptTabs.add(1);
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('ignores about: URLs', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('about:blank', 1, 10);
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'about:blank', windowId: 10, pinned: true });
+
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
+  });
+
+  test('respects cooldown', async () => {
+    setState({ liveFolderSupport: true });
+    addToCache('https://a.com', 1, 10);
+    browser.tabs.get.mockResolvedValue({ id: 1, windowId: 10, pinned: false });
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+    browser.tabs.remove.mockClear();
+
+    // Re-add to cache to simulate the tab still existing
+    addToCache('https://a.com', 3, 10);
+    browser.tabs.get.mockResolvedValue({ id: 3, windowId: 10, pinned: false });
+
+    await handlePinnedTabDuplicate({ id: 2, url: 'https://a.com', windowId: 10, pinned: true });
+    expect(browser.tabs.remove).not.toHaveBeenCalled();
   });
 });

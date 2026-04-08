@@ -1,6 +1,9 @@
 // Event listener wiring and startup logic.
 // All state and functions are defined in background-core.js (loaded first via manifest).
 
+// Track pinned tab IDs for logging on removal (onRemoved doesn't provide tab info)
+const tabPinned = new Set();
+
 browser.storage.onChanged.addListener(onEnabledChanged);
 
 // Context menu item to duplicate a tab exempt from reuse logic
@@ -28,13 +31,23 @@ browser.tabs.onCreated.addListener(async (tab) => {
     return;
   }
 
+  if (tab.pinned) {
+    tabPinned.add(tab.id);
+  }
+
   pendingNewTabs.add(tab.id);
   tabWindowId.set(tab.id, tab.windowId);
   setTimeout(() => pendingNewTabs.delete(tab.id), 5000);
 
-  const { extensionEnabled, startupComplete } = getState();
+  const { extensionEnabled, startupComplete, liveFolderSupport } = getState();
   if (!extensionEnabled) return;
   if (!startupComplete) return;
+
+  // Live Folders: if a pinned tab appears with a URL matching an existing unpinned tab, close the unpinned one
+  if (liveFolderSupport && tab.pinned && !isIgnoredUrl(tab.url)) {
+    await handlePinnedTabDuplicate(tab);
+    return;
+  }
 
   if (!isIgnoredUrl(tab.url)) {
     const matchId = findExistingTab(tab.url, tab.id, tab.windowId);
@@ -55,15 +68,40 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
     }
   }
 
-  if (!changeInfo.url) return;
+  if ('pinned' in changeInfo) {
+    if (changeInfo.pinned) tabPinned.add(tabId);
+    else tabPinned.delete(tabId);
+  }
+
+  if (!changeInfo.url) {
+    // Even without a URL change, check if a tab just became pinned (Live Folders support)
+    if (changeInfo.pinned === true) {
+      const { extensionEnabled, startupComplete, liveFolderSupport } = getState();
+      if (extensionEnabled && startupComplete && liveFolderSupport) {
+        const tab = await browser.tabs.get(tabId);
+        if (!isIgnoredUrl(tab.url)) {
+          await handlePinnedTabDuplicate(tab);
+        }
+      }
+    }
+    return;
+  }
+
+  const tabInfo = await browser.tabs.get(tabId).catch(() => null);
 
   // Update the cache
   const winId = tabWindowId.get(tabId);
   removeTabFromCache(tabId);
   addToCache(changeInfo.url, tabId, winId);
 
+  // Live Folders: if a pinned tab's URL changed and now matches an existing unpinned tab
+  const { extensionEnabled, startupComplete, liveFolderSupport } = getState();
+  if (liveFolderSupport && startupComplete && extensionEnabled && tabInfo?.pinned && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
+    await handlePinnedTabDuplicate(tabInfo);
+    return;
+  }
+
   // If this is a recently created tab, check for duplicates
-  const { extensionEnabled, startupComplete } = getState();
   if (startupComplete && extensionEnabled && pendingNewTabs.has(tabId) && !exemptTabs.has(tabId) && !isIgnoredUrl(changeInfo.url)) {
     pendingNewTabs.delete(tabId);
     const matchId = findExistingTab(changeInfo.url, tabId, winId);
@@ -74,6 +112,7 @@ browser.tabs.onUpdated.addListener(async (tabId, changeInfo) => {
 });
 
 browser.tabs.onRemoved.addListener((tabId) => {
+  tabPinned.delete(tabId);
   pendingNewTabs.delete(tabId);
   exemptTabs.delete(tabId);
   tabLastNavigated.delete(tabId);

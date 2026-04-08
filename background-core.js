@@ -27,15 +27,19 @@ const OPERATION_COOLDOWN_MS = 1000;
 // Cached enabled state (must be synchronous for webRequest)
 let extensionEnabled = true;
 
+// Zen Live Folders support (experimental): close unpinned duplicates when pinned tabs appear
+let liveFolderSupport = false;
+
 // Accessors for primitive state (needed because primitives can't be shared by reference)
 function getState() {
-  return { extensionEnabled, startupComplete, pendingExemptDuplicate };
+  return { extensionEnabled, startupComplete, pendingExemptDuplicate, liveFolderSupport };
 }
 
 function setState(s) {
   if ('extensionEnabled' in s) extensionEnabled = s.extensionEnabled;
   if ('startupComplete' in s) startupComplete = s.startupComplete;
   if ('pendingExemptDuplicate' in s) pendingExemptDuplicate = s.pendingExemptDuplicate;
+  if ('liveFolderSupport' in s) liveFolderSupport = s.liveFolderSupport;
 }
 
 // Initialize the cache with all currently open tabs
@@ -76,13 +80,17 @@ function isIgnoredUrl(url) {
 }
 
 async function loadEnabledState() {
-  const { enabled = true } = await browser.storage.local.get("enabled");
+  const { enabled = true, liveFolderSupport: lfs = false } = await browser.storage.local.get(["enabled", "liveFolderSupport"]);
   extensionEnabled = enabled;
+  liveFolderSupport = lfs;
 }
 
 function onEnabledChanged(changes) {
   if (changes.enabled) {
     extensionEnabled = changes.enabled.newValue;
+  }
+  if (changes.liveFolderSupport) {
+    liveFolderSupport = changes.liveFolderSupport.newValue;
   }
 }
 
@@ -153,6 +161,40 @@ async function switchToTabAndClose(existingTabId, tabIdToClose, url) {
   notify(`${action} ${shortenUrl(url)}`, existingTabId);
 }
 
+// Live Folders support: when a pinned tab appears with a URL matching an existing unpinned tab,
+// close the unpinned tab and keep the pinned one.
+async function handlePinnedTabDuplicate(pinnedTab) {
+  if (!liveFolderSupport) return;
+  if (isIgnoredUrl(pinnedTab.url)) return;
+
+  const existingTabIds = tabsByUrl.get(pinnedTab.url);
+  if (!existingTabIds) return;
+
+  // Find an unpinned duplicate in the same window
+  const unpinnedDuplicate = [...existingTabIds].find((id) => {
+    if (id === pinnedTab.id) return false;
+    if (exemptTabs.has(id)) return false;
+    if (pinnedTab.windowId !== undefined && tabWindowId.get(id) !== pinnedTab.windowId) return false;
+    return true;
+  });
+
+  if (unpinnedDuplicate === undefined) return;
+
+  // Verify the duplicate is actually unpinned
+  try {
+    const dupTab = await browser.tabs.get(unpinnedDuplicate);
+    if (dupTab.pinned) return; // Both pinned, don't interfere
+  } catch {
+    return; // Tab no longer exists
+  }
+
+  if (checkAndRecordOperation(`liveFolderClose:${pinnedTab.id}:${unpinnedDuplicate}`)) return;
+
+  pendingNewTabs.delete(pinnedTab.id);
+  await browser.tabs.remove(unpinnedDuplicate);
+  notify(`Closed duplicate tab in favor of pinned tab: ${shortenUrl(pinnedTab.url)}`, pinnedTab.id);
+}
+
 function applyExemptTitlePrefix(tabId) {
   browser.tabs.executeScript(tabId, {
     code: `if (!document.title.startsWith("[D] ")) { document.title = "[D] " + document.title; }`,
@@ -178,6 +220,6 @@ if (typeof module !== 'undefined') {
     isIgnoredUrl, shortenUrl, addToCache, removeTabFromCache,
     initCache, loadEnabledState, onEnabledChanged, maybeReloadTab,
     switchToTabAndClose, notify, applyExemptTitlePrefix,
-    findExistingTab, checkAndRecordOperation,
+    findExistingTab, checkAndRecordOperation, handlePinnedTabDuplicate,
   };
 }
