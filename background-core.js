@@ -207,7 +207,7 @@ function findExistingTab(url, excludeTabId, windowId) {
   if (!existingTabIds) return undefined;
   return [...existingTabIds].find(
     (id) => id !== excludeTabId && !exemptTabs.has(id) &&
-      (windowId === undefined || tabWindowId.get(id) === windowId)
+      (windowId === undefined || (tabWindowId.get(id) !== undefined && tabWindowId.get(id) === windowId))
   );
 }
 

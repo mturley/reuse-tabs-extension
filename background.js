@@ -129,7 +129,16 @@ browser.webRequest.onBeforeRequest.addListener(
     if (isIgnoredUrl(details.url)) return;
     if (pendingExemptDuplicate || exemptTabs.has(details.tabId)) return;
 
-    const matchId = findExistingTab(details.url, details.tabId, tabWindowId.get(details.tabId));
+    let winId = tabWindowId.get(details.tabId);
+    if (winId === undefined) {
+      // Tab's window isn't tracked yet — skip synchronous matching.
+      // Schedule an async lookup so future navigations in this tab will be scoped correctly.
+      browser.tabs.get(details.tabId).then((tab) => {
+        if (tab) tabWindowId.set(tab.id, tab.windowId);
+      }).catch(() => {});
+      return;
+    }
+    const matchId = findExistingTab(details.url, details.tabId, winId);
     if (matchId === undefined) return;
 
     if (checkAndRecordOperation(`webRequestSwitch:${matchId}:${details.tabId}`)) return;
